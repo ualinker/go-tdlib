@@ -25,9 +25,7 @@ type AuthorizationStateHandler interface {
 	Close()
 }
 
-func Authorize(client *Client, authorizationStateHandler AuthorizationStateHandler) error {
-	defer authorizationStateHandler.Close()
-
+func Authorize(client *Client) error {
 	var authorizationError error
 
 	for {
@@ -36,20 +34,24 @@ func Authorize(client *Client, authorizationStateHandler AuthorizationStateHandl
 			return err
 		}
 
-		if state.AuthorizationStateConstructor() == ConstructorAuthorizationStateClosed {
+		switch state.AuthorizationStateConstructor() {
+		case ConstructorAuthorizationStateWaitTdlibParameters:
+			_, err := client.SetTdlibParameters(context.Background(), client.tdlibParams)
+			if err != nil {
+				return err
+			}
+		case ConstructorAuthorizationStateClosed:
 			return authorizationError
-		}
-
-		if state.AuthorizationStateConstructor() == ConstructorAuthorizationStateReady {
+		case ConstructorAuthorizationStateReady:
 			// dirty hack for db flush after authorization
 			time.Sleep(1 * time.Second)
 			return nil
-		}
-
-		err = authorizationStateHandler.Handle(client, state)
-		if err != nil {
-			authorizationError = err
-			client.Close(context.Background())
+		case ConstructorAuthorizationStateWaitPhoneNumber:
+			return nil
+		case ConstructorAuthorizationStateWaitCode:
+			return nil
+		default:
+			return NotSupportedAuthorizationState(state)
 		}
 	}
 }

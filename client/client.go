@@ -14,6 +14,7 @@ type Client struct {
 	catchersStore   *sync.Map
 	fallbackTimeout time.Duration
 	isClosed        bool
+	tdlibParams     *SetTdlibParametersRequest
 }
 
 type Option func(*Client)
@@ -60,12 +61,13 @@ func NewCallbackResultHandler(callback func(result Type)) *CallbackResultHandler
 	}
 }
 
-func NewClient(authorizationStateHandler AuthorizationStateHandler, options ...Option) (*Client, error) {
+func NewClient(params *SetTdlibParametersRequest, options ...Option) (*Client, error) {
 	client := &Client{
 		jsonClient:    NewJsonClient(),
 		responses:     make(chan *Response, 1000),
 		catchersStore: &sync.Map{},
 		isClosed:      false,
+		tdlibParams:   params,
 	}
 
 	client.extraGenerator = UuidV4Generator()
@@ -77,11 +79,6 @@ func NewClient(authorizationStateHandler AuthorizationStateHandler, options ...O
 
 	for _, option := range options {
 		go option(client)
-	}
-
-	err := Authorize(client, authorizationStateHandler)
-	if err != nil {
-		return nil, err
 	}
 
 	return client, nil
