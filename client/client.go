@@ -147,3 +147,11 @@ func (client *Client) Execute(req Request) (*Response, error) {
 
 	return client.jsonClient.Execute(req)
 }
+
+func (client *Client) SetResultHandler(resultHandler ResultHandler) {
+	client.resultHandler = resultHandler
+}
+
+func (client *Client) DropResultHandler() {
+	client.resultHandler = NewCallbackResultHandler(func(result Type) {})
+}
