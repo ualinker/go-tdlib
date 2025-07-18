@@ -3,7 +3,7 @@ package codegen
 import (
 	"bytes"
 	"fmt"
-	"github.com/zelenin/go-tdlib/internal/tlparser"
+	"github.com/ualinker/go-tdlib/internal/tlparser"
 	"strings"
 )
 
