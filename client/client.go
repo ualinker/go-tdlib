@@ -4,6 +4,10 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/ualinker/go-tdlib/client/ratelimiter"
+	"github.com/ualinker/go-tdlib/client/ratelimiter/strategy"
 )
 
 type Client struct {
@@ -15,6 +19,7 @@ type Client struct {
 	fallbackTimeout time.Duration
 	isClosed        bool
 	tdlibParams     *SetTdlibParametersRequest
+	rateLimiter     ratelimiter.RateLimiter
 }
 
 type Option func(*Client)
@@ -68,8 +73,10 @@ func NewClient(params *SetTdlibParametersRequest, options ...Option) (*Client, e
 		catchersStore: &sync.Map{},
 		isClosed:      false,
 		tdlibParams:   params,
+		rateLimiter:   ratelimiter.NewRateLimiter(strategy.WindUp()),
 	}
 
+	SetLogMessageCallback(2, client.rateLimiter.TDLibCallback)
 	client.extraGenerator = UuidV4Generator()
 	client.resultHandler = NewCallbackResultHandler(func(result Type) {})
 	client.fallbackTimeout = 60 * time.Second
@@ -121,6 +128,8 @@ func (client *Client) Send(ctx context.Context, req Request) (*Response, error) 
 		close(catcher)
 	}()
 
+	client.rateLimiter.Wait()
+	logrus.Infof("go-tdlib: request: %s", req.GetType())
 	err := client.jsonClient.Send(req)
 	if err != nil {
 		return nil, err
@@ -154,4 +163,12 @@ func (client *Client) SetResultHandler(resultHandler ResultHandler) {
 
 func (client *Client) DropResultHandler() {
 	client.resultHandler = NewCallbackResultHandler(func(result Type) {})
+}
+
+type RateLimiter interface {
+	CurrentRate() float64
+}
+
+func (client *Client) RateLimiter() RateLimiter {
+	return client.rateLimiter
 }
